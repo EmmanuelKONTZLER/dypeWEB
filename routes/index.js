@@ -5,6 +5,7 @@ var userModel = require('../models/users');
 var communauteModel = require('../models/communities');
 var adhesionModel = require('../models/adhesions')
 var bonPlanModel = require('../models/bonplan')
+var messageModel = require('../models/messages')
 
 
 /* --- sécurisation du password et token --- */
@@ -227,8 +228,8 @@ router.get('/get-bonplan', async function(req, res, next) {
     for (i=0 ; i<bonplan00.length ; i++) {
       var posteur = await userModel.findOne({_id:bonplan00[i].idUserPosteur})
       if (user.idBonPlan.indexOf(bonplan00[i]._id) == -1) {
-       bonplan.push({_id:bonplan00[i]._id, urlphoto:bonplan00[i].urlphoto, token:posteur.token, titre:bonplan00[i].titre, categorie:bonplan00[i].categorie , description:bonplan00[i].description, isliked:false})
-      } else { bonplan.push({_id:bonplan00[i]._id, urlphoto:bonplan00[i].urlphoto, token:posteur.token, titre:bonplan00[i].titre, categorie:bonplan00[i].categorie , description:bonplan00[i].description, isliked:true})
+       bonplan.push({_id:bonplan00[i]._id, urlphoto:bonplan00[i].urlphoto, token:posteur.token, titre:bonplan00[i].titre, categorie:bonplan00[i].categorie , description:bonplan00[i].description, isliked:false, posteurFirstName:posteur.firstName, posteurAvatar:posteur.urlavatar})
+      } else { bonplan.push({_id:bonplan00[i]._id, urlphoto:bonplan00[i].urlphoto, token:posteur.token, titre:bonplan00[i].titre, categorie:bonplan00[i].categorie , description:bonplan00[i].description, isliked:true, posteurFirstName:posteur.firstName, posteurAvatar:posteur.urlavatar})
       }
     }
   } else {
@@ -240,7 +241,7 @@ router.get('/get-bonplan', async function(req, res, next) {
         var bonPlan00 = await bonPlanModel.findOne({_id:user.idBonPlan[i]});
         console.log('bonplan00', bonPlan00)
         var posteur = await userModel.findOne({_id:bonPlan00.idUserPosteur});
-        bonplan.push({_id:bonPlan00._id, urlphoto:bonPlan00.urlphoto, tokenposteur:posteur.token, titre:bonPlan00.titre,  categorie:bonPlan00.categorie, description:bonPlan00.description,
+        bonplan.push({_id:bonPlan00._id, urlphoto:bonPlan00.urlphoto, tokenposteur:posteur.token, titre:bonPlan00.titre,  categorie:bonPlan00.categorie, description:bonPlan00.description,posteurFirstName:posteur.firstName, posteurAvatar:posteur.urlavatar
         })
       }
     }
@@ -253,18 +254,78 @@ router.get('/get-bonplan', async function(req, res, next) {
 router.post('/favorite', async function(req, res, next) {
   console.log('BE addfavorite', req.body)
 
-
   var user = await userModel.findOne({token:req.body.token})
   if (user.idBonPlan.indexOf(req.body.idBonPlan) == -1) {
     user.idBonPlan.push(req.body.idBonPlan)
   } else {
     user.idBonPlan.splice(user.idBonPlan.indexOf(req.body.idBonPlan),1)
-  }
-
-  
+  }  
   user = await user.save()
   
   res.json({user});
+});
+
+
+/* --- afficher les conversations --- */
+router.get('/get-conversation', async function(req, res, next) {
+  console.log('rere', req.query)
+  if (req.query.tokenInterlocuteur){
+    console.log(req.query)
+    var me = await userModel.findOne({token:req.query.token})
+    var interlocuteur = await userModel.findOne({token:req.query.tokenInterlocuteur})
+    console.log('tete', interlocuteur)
+  } else {
+
+
+   // Récupération de mes infos à partir de mon token
+   // Récupération des mes messages émis et envoyés
+   // Création d'un tableau de contact00 qui servira à créer et vérifier une liste d'interlocuteur unique
+   // Création d'un tableau de contact qui contiendra les info de mes interlocuteurs + les infos du dernier message échangé
+  console.log('get-conversation 01')
+  var me = await userModel.findOne({token:req.query.token})
+  var messagesenv = await messageModel.find({idUserEmetteur:me._id})
+  var messagesrecu = await messageModel.find({idUserDestinataire:me._id})
+  var contact00 = []
+  var contact = []
+  
+   // Boucle sur mes messages envoyés pour ajouter ou mettre à jour le tableau contact
+  for (var i=0 ; i<messagesenv.length ; i++) {
+    var interlocuteur = await userModel.findOne({_id:messagesenv[i].idUserDestinataire})
+    if (contact00.indexOf(interlocuteur.token) == -1) {
+      contact00.push(interlocuteur.token);
+      contact.push({avatarInterlocuteur:interlocuteur.urlAvatar , firstNameInterlocuteur:interlocuteur.firstName , tokenInterlocuteur:interlocuteur.token , contenu:messagesenv[i].contenu , isRead:messagesenv[i].isRead , date:messagesenv[i].date})
+    } else {
+      var lastmessage = contact.filter(message => message.tokenInterlocuteur == interlocuteur.token)
+      if (messagesenv[i].date > lastmessage[0].date) {
+        contact = contact.filter(message => message.tokenInterlocuteur != interlocuteur.token)
+        contact.push({avatarInterlocuteur:interlocuteur.urlAvatar , firstNameInterlocuteur:interlocuteur.firstName , tokenInterlocuteur:interlocuteur.token , contenu:messagesenv[i].contenu , isRead:messagesenv[i].isRead , date:messagesenv[i].date})
+      }
+    }
+  }
+
+  
+
+  for (var i=0 ; i<messagesrecu.length ; i++) {
+    var interlocuteur = await userModel.findOne({_id:messagesrecu[i].idUserEmetteur})
+    if (contact00.indexOf(interlocuteur.token) == -1) {
+      contact00.push(interlocuteur.token);
+      contact.push({avatarInterlocuteur:interlocuteur.urlAvatar , firstNameInterlocuteur:interlocuteur.firstName , tokenInterlocuteur:interlocuteur.token , contenu:messagesrecu[i].contenu , isRead:messagesrecu[i].isRead , date:messagesrecu[i].date})
+    } else {
+      var lastmessage = contact.filter(message => message.tokenInterlocuteur == interlocuteur.token)
+      console.log('lastmessage', lastmessage)
+      console.log('date', messagesrecu[i].date ,lastmessage[0].date)
+      if (messagesrecu[i].date > lastmessage[0].date) {
+        console.log('dd1', contact)
+        contact = contact.filter(message => message.tokenInterlocuteur != interlocuteur.token)
+        console.log('dd2', contact)
+        contact.push({avatarInterlocuteur:interlocuteur.urlAvatar , firstNameInterlocuteur:interlocuteur.firstName , tokenInterlocuteur:interlocuteur.token , contenu:messagesrecu[i].contenu , isRead:messagesrecu[i].isRead , date:messagesrecu[i].date})
+      }
+    }
+  }
+}
+
+  console.log('get-conversation 01', contact)
+  res.json({contact, interlocuteur});
 });
 
 module.exports = router;
