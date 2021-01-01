@@ -198,7 +198,7 @@ router.post('/change-profil', async function(req, res, next) {
 /* --- test photo --- */
 router.post('/avatar', async function(req, res, next) {
   console.log('BE avatar', req.body.avatar)
-  console.log('BE2 avatar', req.body.avatar[0])
+  console.log('BE2 avatar', req.body)
 
   // var imagePath = './tmp/avatar'+ uniqid()+'.jpg';
   // var resultCopy = await req.body.avatar.mv(imagePath);
@@ -235,14 +235,32 @@ router.get('/get-bonplan', async function(req, res, next) {
   } else {
   
     if (req.query.key == 2) {
+      console.log('get favorite', req.query)
       var user = await userModel.findOne({token:req.query.token})
       var bonplan = []
-      for (var i=0 ; i<user.idBonPlan.length ; i++) {
-        var bonPlan00 = await bonPlanModel.findOne({_id:user.idBonPlan[i]});
-        console.log('bonplan00', bonPlan00)
-        var posteur = await userModel.findOne({_id:bonPlan00.idUserPosteur});
-        bonplan.push({_id:bonPlan00._id, urlphoto:bonPlan00.urlphoto, tokenposteur:posteur.token, titre:bonPlan00.titre,  categorie:bonPlan00.categorie, description:bonPlan00.description,posteurFirstName:posteur.firstName, posteurAvatar:posteur.urlavatar
-        })
+      console.log('dede',user.idBonPlan.length )
+      if (user.idBonPlan.length != 0){
+        for (var i=0 ; i<user.idBonPlan.length ; i++) {
+          var bonPlan00 = await bonPlanModel.findOne({_id:user.idBonPlan[i]});
+          console.log('bonplan00', bonPlan00)
+          var posteur = await userModel.findOne({_id:bonPlan00.idUserPosteur});
+          bonplan.push({_id:bonPlan00._id, urlphoto:bonPlan00.urlphoto, tokenposteur:posteur.token, titre:bonPlan00.titre,  categorie:bonPlan00.categorie, description:bonPlan00.description,posteurFirstName:posteur.firstName, posteurAvatar:posteur.urlavatar
+          })
+        }
+      }      
+    } else {
+      if(req.query.key == 3){
+        console.log('get favorite 1234', req.query)
+        var user = await userModel.findOne({token:req.query.token})
+        var myBonPlan = await bonPlanModel.find({idUserPosteur:user._id})
+        var bonplan = []
+        console.log('dede',myBonPlan.length )
+        if (myBonPlan.length != 0){
+          for (var i=0 ; i<myBonPlan.length ; i++) {
+            bonplan.push({_id:myBonPlan[i]._id, urlphoto:myBonPlan[i].urlphoto, tokenposteur:user.token, titre:myBonPlan[i].titre,  categorie:myBonPlan[i].categorie, description:myBonPlan[i].description,posteurFirstName:user.firstName, posteurAvatar:user.urlavatar
+            })
+          }
+        }      
       }
     }
   }
@@ -269,11 +287,38 @@ router.post('/favorite', async function(req, res, next) {
 /* --- afficher les conversations --- */
 router.get('/get-conversation', async function(req, res, next) {
   console.log('rere', req.query)
+  // s'il y a un tokenInterlocuteur dans le req.query, la route comprend qu'ils s'agit d'une conversation en 1to1,
+  // récupère les messages avec l'interlocuteur uniquement et les renvoie au FE
   if (req.query.tokenInterlocuteur){
-    console.log(req.query)
     var me = await userModel.findOne({token:req.query.token})
     var interlocuteur = await userModel.findOne({token:req.query.tokenInterlocuteur})
-    console.log('tete', interlocuteur)
+    var messagesenv = await messageModel.find({idUserEmetteur:me._id , idUserDestinataire:interlocuteur._id})
+    var messagesrecu = await messageModel.find({idUserEmetteur:interlocuteur._id , idUserDestinataire:me._id})
+    var conversation = []
+
+console.log('messages 1to1', messagesenv, messagesrecu)
+
+    for (var i=0 ; i<messagesenv.length ; i++){
+      conversation.push({emetteur:me.token, firstName:me.firstName , contenu:messagesenv[i].contenu , date:messagesenv[i].date})
+      console.log ('messages envoyés', conversation)
+    }
+
+    for (var i=0 ; i<messagesrecu.length ; i++){
+      conversation.push({emetteur:interlocuteur.token, firstName:interlocuteur.firstName , contenu:messagesrecu[i].contenu , date:messagesrecu[i].date})
+      console.log ('messages recu + env', conversation)
+    }
+
+    conversation.sort (function compare(a,b) {
+      if (a.date < b.date)
+       return -1;
+      if (a.date > b.date)
+       return 1;
+      return 0;
+    });
+
+   
+console.log('2eme messages 1to1', conversation)
+
   } else {
 
 
@@ -303,8 +348,6 @@ router.get('/get-conversation', async function(req, res, next) {
     }
   }
 
-  
-
   for (var i=0 ; i<messagesrecu.length ; i++) {
     var interlocuteur = await userModel.findOne({_id:messagesrecu[i].idUserEmetteur})
     if (contact00.indexOf(interlocuteur.token) == -1) {
@@ -325,7 +368,58 @@ router.get('/get-conversation', async function(req, res, next) {
 }
 
   console.log('get-conversation 01', contact)
-  res.json({contact, interlocuteur});
+  res.json({contact, interlocuteur, conversation});
+});
+
+
+/* --- envoyer un message en BDD --- */
+router.post('/send-message', async function(req, res, next) {
+  console.log('sendMessage', req.body)
+
+  var me = await userModel.findOne({token:req.body.token})
+  var interlocuteur = await userModel.findOne({token:req.body.tokenInterlocuteur})
+  var date = new Date()
+  
+ 
+  var message = new messageModel({
+    idUserEmetteur:me._id,
+    idUserDestinataire:interlocuteur._id,
+    contenu:req.body.contenu,
+    isRead:false,
+    date:date
+  })
+
+  message = await message.save()
+  
+  res.json({});
+});
+
+/* --- ajouter un bon plan --- */
+router.post('/add-bonplan', async function(req, res, next) {
+  console.log('addBonPlan', req.body)
+
+  var me = await userModel.findOne({token:req.body.token})
+
+  var bonplan = new bonPlanModel({
+    idUserPosteur: me._id,
+    titre: req.body.titre,
+    categorie: req.body.categorie,
+    description: req.body.description,
+      })
+      
+  bonplan = await bonplan.save()    
+	
+  res.json({});
+});
+
+/* --- supprimer un bon plan --- */
+router.delete('/delete-bonplan', async function(req, res, next) {
+  console.log('delete', req.body)
+  var user = await userModel.find({token:req.query.token})
+  var bonplan = await bonPlanModel.deleteOne({_id:req.query.id})
+ 
+	
+  res.json({user});
 });
 
 module.exports = router;
