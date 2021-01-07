@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node ./bin/www",
-    "heroku-postbuild": "cd reactapp && npm install && npm start"
+    "heroku-postbuild": "cd reactapp "
   },
   "dependencies": {
     "cloudinary": "^1.23.0",
