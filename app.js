@@ -27,7 +27,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'reactapp/build')));
 
 app.get('/*', (req,res)=> {
-  res.sendfile(path.join(__dirname,'/reactapp/build/'));
+  res.sendFile(path.join(__dirname,'/reactapp/build/'));
 });
 
 app.use('/', indexRouter);
