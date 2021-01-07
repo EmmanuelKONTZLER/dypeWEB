@@ -32,7 +32,7 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
 app.get('/*', (req,res)=> {
-  res.sendFile(path.join('index.html'));
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
   });
   
 // catch 404 and forward to error handler
