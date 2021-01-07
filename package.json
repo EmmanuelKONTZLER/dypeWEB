@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www",
-    "heroku-postbuild": "cd reactapp && npm install && npm start"
+    "start": "node ./bin/www && npm start"
+    
   },
   "dependencies": {
     "cloudinary": "^1.23.0",
