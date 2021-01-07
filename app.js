@@ -32,7 +32,7 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
 app.get('/*', (req,res)=> {
-  res.sendFile(path.join(__dirname, 'reactapp/build', 'index.html'));
+  res.sendFile(path.join(__dirname, 'reactapp/build/src/App.js'));
   });
   
 // catch 404 and forward to error handler
